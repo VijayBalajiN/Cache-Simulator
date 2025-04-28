@@ -1,4 +1,8 @@
-#include <bits/stdc++.h>
+// #include <bits/stdc++.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include "parser.h"
 
 using namespace std;
 
@@ -37,10 +41,18 @@ int main(int argc, char* argv[]){
             return 0;
         }
     }
+    vector<pair<char, int>> trace1, trace2, trace3, trace4;
+    Traces traces = parse_traces(tracefile);
+    trace1 = traces.trace1;
+    trace2 = traces.trace2;
+    trace3 = traces.trace3;
+    trace4 = traces.trace4;
+    // for (auto p : trace2){
+    //     cout << p.first << " " << p.second << "\n";
+    // }
 }
 
 void print_help(){
-    // cout << "print help here" << "\n";
     cout << "Usage: ./L1simulate  [options]\n";
     cout << "Simulate L1 cache for quad core processors, with cache coherence support.\n";
     cout << "Options:\n";
