@@ -1,92 +1,119 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include "processor.h"
+#include <assert.h>
 
 using namespace std;
 
-enum class ProcState {
-    IDLE,
-    READ_HIT_SME_NORM,
-    READ_MISS_I_NORM,
-    READ_MISS_I_NORM_RM,
-    READ_MISS_S_REP,
-    READ_MISS_S_REP_RM,
-    READ_MISS_M_REP,
-    READ_MISS_M_REP_WB,
-    READ_MISS_M_REP_RM,
-    WRITE_HIT_M_NORM,
-    WRITE_HIT_M_NORM_WH,
-    WRITE_HIT_S_NORM,
-    WRITE_HIT_S_NORM_IV,
-    WRITE_MISS_I_NORM,
-    WRITE_MISS_I_NORM_WM,
-    WRITE_MISS_S_REP,
-    WRITE_MISS_S_REP_WM,
-    WRITE_MISS_M_REP,
-    WRITE_MISS_M_REP_WB,
-    WRITE_MISS_M_REP_WM,
-};
+CacheLine::CacheLine() : tag(0), state(CacheState::INVALID) {}
 
-// enum class SnoopState {
+CacheState Processor::getCacheState(unsigned int address)
+{
+    unsigned int setIndex = (address >> b) & ((1 << s) - 1);
+    unsigned int tag = address >> (s + b);
 
-// };
+    for (int i = 0; i < E; ++i)
+    {
+        if (cache[setIndex][i].tag == tag)
+        {
+            return cache[setIndex][i].state;
+        }
+    }
+    return CacheState::INVALID;
+}
 
-enum class CacheState {
-    INVALID,
-    SHARED,
-    MODIFIED,
-    EXCLUSIVE
-};
+Processor::Processor(int s, int E, int b, int core, vector<pair<char, int>> instructions) : 
+s(s), E(E), b(b), instructions(instructions), line(-1), core(core), currentInstruction(' '), currentAddress(0)
+{
+    cache.resize(1 << s, vector<CacheLine>(E));
+    cacheLRU.resize(1 << s, vector<int>(E, 0));
+    state = ProcState::IDLE;
+}
 
-struct CacheLine {
-    int tag;
-    CacheState state;
-    
+void Processor::completeTransaction()
+{
+    switch (state)
+    {
+    case ProcState::IDLE:
+    case ProcState::READ_HIT_SME_NORM:
+    case ProcState::READ_MISS_I_NORM:
+    case ProcState::READ_MISS_I_NORM_RM:
+        state = ProcState::IDLE;
+        break;
+    case ProcState::READ_MISS_S_REP_RM:
+    }
+}
 
-    CacheLine() : tag(0), state(CacheState::INVALID) {}
-};
+void Processor::setCacheLineState (CacheState cachestate) {
+    unsigned int setIndex = (currentAddress >> b) & ((1 << s) - 1);
+    unsigned int tag = currentAddress >> (s + b);
 
-enum InstructionType {
-    READ,
-    WRITE
-};
+    for (int i = 0; i < E; ++i)
+    {
+        if (cache[setIndex][i].tag == tag)
+        {
+            cache[setIndex][i].state = cachestate;
+            return;
+        }
+    }
 
-struct Instructions {
-    InstructionType type;
-    unsigned int address;
-};
+    for (int i = 0; i < E; ++i)
+    {
+        if (cache[setIndex][i].state == CacheState::INVALID)
+        {
+            cache[setIndex][i].state = cachestate;
+            cache[setIndex][i].tag = tag;
+            return;
+        }
+    }
 
-class Processor {
-    private:
-        int s;
-        int E;
-        int b;
-        ProcState state;
+    cout << "ERROR, CacheLineState unable to be set!" << endl;
+    assert(false);
+}
 
-        vector<vector<CacheLine>> cache;
-        vector<Instructions> instructions;
+bool Processor::requestOwnership() {
+    switch (state){
+        case ProcState::IDLE: 
+        case ProcState::READ_HIT_SME_NORM: 
+        case ProcState::WRITE_HIT_M_NORM:
+            return false;
+        default:
+            return true;
+    } 
+}
 
-        CacheState getCacheState(unsigned int address) {
-            unsigned int setIndex = (address >> b) & ((1 << s) - 1);
-            unsigned int tag = address >> (s + b);
+bool Processor::processInstruction() {
+    switch (state) {
+        case ProcState::IDLE:
+            line++;
+            if (line < instructions.size()) {
 
-            for (int i = 0; i < E; ++i) {
-                if (cache[setIndex][i].tag == tag) {
-                    return cache[setIndex][i].state;
-                }
+                currentInstruction = instructions[line].first;
+                currentAddress = instructions[line].second;
+
+                CacheState cacheState = getCacheState(currentAddress);
+
+                // if (currentInstruction == 'R') {
+                //     state = ProcState::READ_HIT_SME_NORM;
+                //     return true;
+                // } else if (currInstruction == 'W') {
+                //     state = ProcState::WRITE_HIT_M_NORM;
+                //     return true;
+                // }
+                
+            } else {
+                state = ProcState::COMPLETE;
+                return false;
             }
-            return CacheState::INVALID;
-        }
+            break;
+        default:
+            break;
+    }
+}
 
 
-    public:
-        Processor(int s, int E, int b, vector<Instructions> instructions) : s(s), E(E), b(b), instructions(instructions) {
-            cache.resize(1 << s, vector<CacheLine>(E));
-            state = ProcState::IDLE;
-        }
-};
 
-
-int main () {
-
+int main()
+{
 }
