@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra -O2 -g
-TARGET = cache_simulator
+TARGET = L1simulate
 SRC = processor.cpp parser.cpp
 OBJ = $(SRC:.cpp=.o)
 
