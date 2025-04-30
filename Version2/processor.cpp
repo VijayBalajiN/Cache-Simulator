@@ -40,6 +40,7 @@ struct Core
 {
     int line;
     int core;
+    int needsBus;
 
     char currentInstruction;
     int currentAddress;
@@ -49,7 +50,7 @@ struct Core
     vector<pair<char, int>> instructions;
 
     Core(int s, int E, int b, const vector<pair<char, int>> instr)
-        : line(0), core(0), currentInstruction(0), currentAddress(0), instructions(instr)
+        : line(0), core(0), currentInstruction(0), currentAddress(0), instructions(instr), needsBus(0)
     {
         int sets = 1 << s;
 
@@ -90,10 +91,12 @@ private:
         unsigned int setIndex = (address >> b) & ((1 << s) - 1);
         unsigned int tag = address >> (s + b);
 
+        if (cores[core].needsBus == 1 && state != BusState::IDLE) {
+            return;
+        }
+
         int line = cores[core].line;
         int size = cores[core].instructions.size();
-
-        cout << "CORE: " << core << " " << line << " SIZE: "<< size << endl;
 
         if (line < cores[core].instructions.size())
         {
@@ -105,7 +108,7 @@ private:
 
             if (currentInstruction == 'R')
             {
-                cout << "R" << endl;
+              
                 switch (cacheState)
                 {
                 case CacheState::SHARED:
@@ -114,9 +117,11 @@ private:
                     if (!owners.empty() && owners.top() == core)
                         owners.pop();
                     cores[core].line++;
+                    cores[core].needsBus = 0;
                     break;
                 case CacheState::INVALID:
-                    cout << "INVALID" << endl;
+                    cores[core].needsBus = 1;
+                    
                     if (owners.empty())
                     {
                         owners.push(core);
@@ -132,12 +137,14 @@ private:
                             state = BusState::RM;
                             destination = core;
                             address = currentAddress;
+                            
                             return;
                         case CacheState::MODIFIED:
                             state = BusState::TRANSACTION;
                             remainingCycles = 100;
                             source = core;
                             destination = 4;
+                            
                             return;
                         default:
                             cout << "This state is not reachable logically!" << endl;
@@ -159,14 +166,18 @@ private:
                     if (!owners.empty() && owners.top() == core)
                         owners.pop();
                     cores[core].line++;
+                    cores[core].needsBus = 0;
                     break;
                 }
                 case CacheState::SHARED:
                 {
+                    
+                    cores[core].needsBus = 1;
+                    
                     if (owners.empty())
                     {
                         owners.push(core);
-                    }
+                    } 
 
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
@@ -179,6 +190,9 @@ private:
                     break;
                 }
                 case CacheState::INVALID:
+                
+                    cores[core].needsBus = 1;
+                
                     if (owners.empty())
                     {
                         owners.push(core);
@@ -213,7 +227,7 @@ private:
         else
         {
             completed[core] = 1;
-            cout << "COMPLETED: " << core << endl;
+            
         }
     }
 
@@ -391,6 +405,10 @@ private:
 
         CacheState cacheState = (source == 4 ? CacheState::EXCLUSIVE : CacheState::SHARED);
 
+        if (source == 5) {
+            cacheState = CacheState::MODIFIED;
+        }
+
         for (int i = 0; i < E; ++i)
         {
             if (cores[core].cache[setIndex][i].tag == tag)
@@ -425,7 +443,7 @@ private:
         case BusState::RWITM:
             state = BusState::TRANSACTION;
             remainingCycles = MEMCYCLES;
-            source = 4;
+            source = 5;
             break;
         case BusState::INVALID:
             state = BusState::IDLE;
@@ -437,7 +455,7 @@ private:
                     addToCache(destination);
                 if (owners.top() >= 4 && owners.top() <= 7)
                     owners.pop();
-                state = BusState::INVALID;
+                state = BusState::IDLE;
             }
             break;
         default:
@@ -459,7 +477,6 @@ private:
             return true;
 
         processTransaction();
-
         
         int tempOwner;
 
@@ -496,7 +513,7 @@ public:
         cores[2] = Core(s, E, b, traces.trace3);
         cores[3] = Core(s, E, b, traces.trace4);
 
-        cout << cores[0].instructions[0].first << endl;
+    
 
         cycle = 0;
 
@@ -512,7 +529,7 @@ public:
         while (!runCycle())
         {
             cycle += 1;
-            cout << cycle << endl;
+            
         }
         
     }
