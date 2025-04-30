@@ -42,6 +42,17 @@ struct Core
     int core;
     int needsBus;
 
+    int tot_instruc;
+    int tot_reads;
+    int tot_writes;
+    int tot_exe_cycles;  // to be done
+    int idle_cycles;     // to be done
+    int cache_misses;
+    int cache_evic;
+    int writebacks;
+    int bus_invalid;
+    int data_traff;
+
     char currentInstruction;
     int currentAddress;
 
@@ -50,10 +61,11 @@ struct Core
     vector<pair<char, int>> instructions;
 
     Core(int s, int E, int b, const vector<pair<char, int>> instr)
-        : line(0), core(0), currentInstruction(0), currentAddress(0), instructions(instr), needsBus(0)
+        : line(0), core(0), currentInstruction(0), currentAddress(0), instructions(instr), needsBus(0), tot_reads(0),
+          tot_exe_cycles(0), idle_cycles(0), cache_misses(0), cache_evic(0), writebacks(0), bus_invalid(0), data_traff(0)
     {
         int sets = 1 << s;
-
+        tot_instruc = instructions.size();
         cache.resize(sets, vector<CacheLine>(E));
         cacheLRU.resize(sets, vector<int>(E, 0));
     }
@@ -91,16 +103,21 @@ private:
         unsigned int setIndex = (address >> b) & ((1 << s) - 1);
         unsigned int tag = address >> (s + b);
 
-        if (cores[core].needsBus == 1 && state != BusState::IDLE) {
+        if (cores[core].needsBus == 1 && state != BusState::IDLE && owners.top() == core && cores[core].line < cores[core].tot_instruc) {
+            cores[core].tot_exe_cycles += 1;
+            return;
+        }
+        else if (cores[core].needsBus == 1 && state != BusState::IDLE && owners.top() != core && cores[core].line < cores[core].tot_instruc){
+            cores[core].idle_cycles += 1;
             return;
         }
 
         int line = cores[core].line;
-        int size = cores[core].instructions.size();
+        int size = cores[core].instructions.size();   // not used
 
         if (line < cores[core].instructions.size())
         {
-
+            cores[core].tot_exe_cycles += 1;
             char currentInstruction = cores[core].instructions[line].first;
             unsigned int currentAddress = cores[core].instructions[line].second;
 
@@ -108,7 +125,7 @@ private:
 
             if (currentInstruction == 'R')
             {
-              
+                cores[core].tot_reads += 1;
                 switch (cacheState)
                 {
                 case CacheState::SHARED:
@@ -120,6 +137,7 @@ private:
                     cores[core].needsBus = 0;
                     break;
                 case CacheState::INVALID:
+                    
                     cores[core].needsBus = 1;
                     
                     if (owners.empty())
@@ -129,6 +147,8 @@ private:
 
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
+                        cores[core].cache_misses += 1;
+                        cores[core].data_traff += (1 << b);
                         CacheState lruState = getInvalidCacheState(core, currentAddress);
 
                         switch (lruState)
@@ -140,6 +160,8 @@ private:
                             
                             return;
                         case CacheState::MODIFIED:
+                            cores[core].writebacks += 1;
+                            cores[core].data_traff += (1 << b);
                             state = BusState::TRANSACTION;
                             remainingCycles = 100;
                             source = core;
@@ -156,7 +178,7 @@ private:
             }
             else if (currentInstruction == 'W')
             {
-
+                cores[core].tot_writes += 1;
                 switch (cacheState)
                 {
                 case CacheState::MODIFIED:
@@ -181,6 +203,7 @@ private:
 
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
+                        cores[core].bus_invalid += 1;
                         CacheState _ = getWriteCacheState(core, currentAddress);
 
                         state = BusState::INVALID;
@@ -190,7 +213,7 @@ private:
                     break;
                 }
                 case CacheState::INVALID:
-                
+                    
                     cores[core].needsBus = 1;
                 
                     if (owners.empty())
@@ -200,6 +223,8 @@ private:
 
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
+                        cores[core].cache_misses += 1;
+                        cores[core].data_traff += (1 << b);
                         CacheState lruState = getInvalidCacheState(core, currentAddress); // Invalidate corresponding LRU State
 
                         switch (lruState)
@@ -210,6 +235,8 @@ private:
                             address = currentAddress;
                             return;
                         case CacheState::MODIFIED:
+                            cores[core].writebacks += 1;
+                            cores[core].data_traff += (1 << b);
                             state = BusState::TRANSACTION;
                             remainingCycles = 100;
                             source = core;
@@ -296,6 +323,8 @@ private:
             }
         }
 
+        cores[core].cache_evic += 1;
+
         int min = 0;
 
         for (int i = 0; i < E; i++)
@@ -340,7 +369,7 @@ private:
 
         for (int i = 0; i < E; ++i)
         {
-            if (cores[core].cache[setIndex][i].tag == tag)
+            if (cores[core].cache[setIndex][i].tag == tag)   // is it possible that tags match but it is in invalid?
             {
                 cores[core].cache[setIndex][i].state = CacheState::SHARED;
             }
@@ -375,6 +404,7 @@ private:
             if (core != source && owners.top() <= 3 && containsAddress(core, address))
             {
                 owners.push(4 + core);
+                cores[core].data_traff += (1 << b);
                 state = BusState::TRANSACTION;
                 source = core;
                 remainingCycles = 2 * (1 << b);
@@ -385,6 +415,7 @@ private:
             if (core != source && owners.top() <= 3 && getCacheState(core, address) == CacheState::MODIFIED)
             {
                 owners.push(4 + core);
+                cores[core].data_traff += (1 << b);
                 state = BusState::TRANSACTION;
                 source = core;
                 destination = 4;
