@@ -36,51 +36,248 @@ This report presents the implementation and experimental analysis of a cache sim
 % \subsection{System Architecture}
 % Add description of the overall system architecture
 
-\subsection{Main Classes and Functions}
-% Here you can describe the main classes and data structures used in your implementation
+\subsection{Main Classes and Data Structures}
+The cache simulator implementation uses several key data structures and classes to model a multi-core cache system with MESI protocol support:
 
-\begin{lstlisting}[language=C++, caption=Core class structure]
-// Main classes in your implementation
-class CacheLine {
-    // Add your cache line attributes
+\begin{lstlisting}[language=C++, caption=Cache State Definitions]
+enum class CacheState
+{
+    INVALID,  // Cache line is invalid or not present
+    SHARED,   // Cache line is shared across multiple caches
+    MODIFIED, // Cache line has been modified locally
+    EXCLUSIVE // Cache line is exclusive to this cache
 };
 
-class Processor {
-    // Add your processor implementation
+enum class BusState
+{
+    INVALID,     // Bus is in the process of invalidating
+    RWITM,       // Read with Intent to Modify transaction
+    RM,          // Read Miss transaction
+    TRANSACTION, // Bus is busy with a transaction
+    IDLE         // Bus is idle
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption=Cache Line and Core Structure]
+struct CacheLine
+{
+    int tag;            // Tag bits for address
+    CacheState state;   // MESI state of this cache line
+    
+    CacheLine() : tag(0), state(CacheState::INVALID) {}
 };
 
-// Other important data structures
+struct Core
+{
+    int line;           // Current instruction line
+    int core;           // Core ID
+    int needsBus;       // Flag indicating need for bus access
+    
+    // Performance metrics
+    int tot_instruc;    // Total instructions executed
+    int tot_reads;      // Total read operations
+    int tot_writes;     // Total write operations
+    int tot_exe_cycles; // Total execution cycles
+    int idle_cycles;    // Idle cycles
+    int cache_misses;   // Cache miss count
+    int cache_evic;     // Cache eviction count
+    int writebacks;     // Writeback count
+    int bus_invalid;    // Bus invalidation count
+    int data_traff;     // Data traffic in bytes
+    
+    char currentInstruction;  // Current instruction being executed
+    int currentAddress;       // Current address being accessed
+    
+    // Cache structure
+    vector<vector<CacheLine>> cache;    // 2D vector representing sets and ways
+    vector<vector<int>> cacheLRU;       // LRU tracking for replacement
+    vector<pair<char, int>> instructions; // Trace instructions (op, address)
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption=Bus Class]
+class Bus
+{
+private:
+    stack<int> owners;   // Tracks current bus ownership (cores 0-3)
+    BusState state;      // Current state of the bus
+    int remainingCycles; // Cycles remaining in current transaction
+    int source;          // Source of current transaction
+    int destination;     // Destination of current transaction
+    unsigned int address; // Address for current transaction
+    
+    int s;               // Number of set index bits
+    int E;               // Associativity
+    int b;               // Number of block offset bits
+    
+    int completed[4];    // Completion status for each core
+    int cycle;           // Current simulation cycle
+    Core cores[4];       // The four processor cores
+    
+    // Key private methods
+    void runCore(int core);              // Process an instruction for a core
+    bool isSetFull(int core, unsigned int currentAddress); // Check if a set is full
+    CacheState getCacheState(int core, unsigned int currentAddress); // Get cache state
+    CacheState getWriteCacheState(int core, unsigned int currentAddress); // Handle write
+    CacheState getInvalidCacheState(int core, unsigned int currentAddress); // Find invalid line
+    void invalidateAddress(int core, unsigned int currentAddress); // Invalidate caches
+    void shareAddress(int core, unsigned int currentAddress); // Share cache lines
+    bool containsAddress(int core, int currentAddress); // Check address presence
+    void runSnoop(int core); // Run snooping protocol
+    void addToCache(int core); // Add data to cache
+    void processTransaction(); // Process bus transaction
+    bool checkCompletion(); // Check if all cores completed
+    bool runCycle(); // Run one simulation cycle
+    
+public:
+    Bus(int s, int E, int b, string appname); // Constructor with cache config and app
+    void runApplication(); // Main simulation entry point
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption=runCycle Method]
+bool runCycle()
+{
+    if (checkCompletion())
+        return true;
+
+    processTransaction();
+    
+    int tempOwner;
+
+    if (owners.empty()) {
+        tempOwner = 4;
+    } else {
+        tempOwner = owners.top();
+    }
+
+    if (tempOwner <= 3) {
+        runCore(tempOwner);
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (i != tempOwner)
+            runCore(i);
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        runSnoop(i);
+    }
+
+    return false;
+}
 \end{lstlisting}
 
 \subsection{Detailed Implementation}
-\subsubsection{Cache Structure}
+\subsubsection{Other Functions}
 % Describe how the cache is structured
+\begin{lstlisting}[language=C++, caption=processTransaction Method]
+void processTransaction()
+{
+    remainingCycles--;
+
+    switch (state)
+    {
+    case BusState::RM:
+    case BusState::RWITM:
+        state = BusState::TRANSACTION;
+        remainingCycles = MEMCYCLES;
+        source = 5;
+        break;
+    case BusState::INVALID:
+        state = BusState::IDLE;
+        break;
+    case BusState::TRANSACTION:
+        if (remainingCycles == 0)
+        {
+            if (destination < 4)
+                addToCache(destination);
+            if (owners.top() >= 4 && owners.top() <= 7)
+                owners.pop();
+            state = BusState::IDLE;
+        }
+        break;
+    default:
+        break;
+    }
+}
+\end{lstlisting}
 
 \subsubsection{MESI Protocol Implementation}
-% Describe how the MESI protocol is implemented
-Add a photo from notes
+The cache simulator implements the MESI (Modified, Exclusive, Shared, Invalid) protocol for maintaining cache coherence across the four processor cores. This protocol tracks the state of each cache line and ensures consistency when multiple cores access the same memory locations.
 
 \begin{figure}[H]
     \centering
-    \begin{tikzpicture}[node distance=2cm]
-        % Add your state diagram or flowchart here
-        \node[draw, rectangle] (start) {Start};
-        \node[draw, rectangle, below of=start] (checkCache) {Check Cache};
-        \node[draw, rectangle, below of=checkCache] (hitMiss) {Hit/Miss?};
-        
-        \draw[->] (start) -- (checkCache);
-        \draw[->] (checkCache) -- (hitMiss);
-        % Add more elements to your flowchart
-    \end{tikzpicture}
-    \caption{Flow diagram of cache access operations}
-    \label{fig:cache_flow}
+    \includegraphics[width=0.9\textwidth]{mesi_local.png}
+    \caption{MESI protocol state diagram for locally initiated accesses}
+    \label{fig:mesi_local}
 \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{mesi_remote.png}
+    \caption{MESI protocol state diagram for remotely initiated accesses}
+    \label{fig:mesi_remote}
+\end{figure}
+
+The MESI protocol maintains four possible states for each cache line:
+\begin{itemize}
+    \item \textbf{Modified (M)}: The cache line is present only in the current cache and has been modified. The data in this cache is newer than in main memory.
+    \item \textbf{Exclusive (E)}: The cache line is present only in the current cache but is unmodified. This state transitions to Modified on a write hit without requiring bus transactions.
+    \item \textbf{Shared (S)}: The cache line may be stored in other caches and is unmodified. Multiple cores can have the same cache line in Shared state.
+    \item \textbf{Invalid (I)}: The cache line is invalid or not present.
+\end{itemize}
+
+As shown in the state diagrams, the protocol handles both locally initiated accesses (from the processor) and remotely initiated accesses (from other processors via the bus). Bus transactions like Memory Read, Read With Intent To Modify (RWITM), and Invalidate are used to maintain coherence across all caches.
+
+
 
 \subsubsection{Replacement Policy}
 % Describe the replacement policy
 
 We have used the LRU Replacement Policy \\
-Add some code here
+\begin{lstlisting}[language=C++, caption=LRU Replacement Policy]
+    CacheState getInvalidCacheState(int core, unsigned int currentAddress)
+    {
+        unsigned int setIndex = (currentAddress >> b) & ((1 << s) - 1);
+        unsigned int tag = currentAddress >> (s + b);
+
+        for (int i = 0; i < E; ++i)
+        {
+            if (cores[core].cache[setIndex][i].state == CacheState::INVALID)
+            {
+                cores[core].cache[setIndex][i].tag = tag;
+                return CacheState::INVALID;
+            }
+        }
+
+        cores[core].cache_evic += 1;
+
+        int min = 0;
+
+        for (int i = 0; i < E; i++)
+        {
+            if (cores[core].cacheLRU[setIndex][i] < cores[core].cacheLRU[setIndex][min])
+                min = i;
+        }
+
+        cores[core].cache[setIndex][min].tag = tag;
+
+        if (cores[core].cache[setIndex][min].state == CacheState::EXCLUSIVE ||
+            cores[core].cache[setIndex][min].state == CacheState::SHARED)
+        {
+            cores[core].cache[setIndex][min].state = CacheState::INVALID;
+            return CacheState::INVALID;
+        }
+        else if (cores[core].cache[setIndex][min].state == CacheState::MODIFIED)
+        {
+            cores[core].cache[setIndex][min].state = CacheState::INVALID;
+            return CacheState::MODIFIED;
+        }
+    }
+\end{lstlisting}
 
 
 \section{Experimental Analysis}

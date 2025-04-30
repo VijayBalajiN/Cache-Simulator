@@ -388,6 +388,7 @@ private:
                 return true;
             }
         }
+        return false;
     }
 
     void runSnoop(int core)
@@ -401,6 +402,8 @@ private:
             }
             break;
         case BusState::RM:
+            
+            
             if (core != source && owners.top() <= 3 && containsAddress(core, address))
             {
                 owners.push(4 + core);
@@ -526,12 +529,10 @@ private:
             if (i != tempOwner)
                 runCore(i);
         }
-
         for (int i = 0; i < 4; i++)
         {
             runSnoop(i);
         }
-
         return false;
     }
 
