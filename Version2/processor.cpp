@@ -5,6 +5,7 @@
 #include <stack>
 #include "parser.h"
 #include <fstream>
+#include <iomanip>
 
 #define MEMCYCLES 100
 
@@ -59,9 +60,9 @@ struct Core
 
     vector<vector<CacheLine>> cache;
     vector<vector<int>> cacheLRU;
-    vector<pair<char, int>> instructions;
+    vector<pair<char, unsigned int>> instructions;
 
-    Core(int s, int E, int b, const vector<pair<char, int>> instr)
+    Core(int s, int E, int b, const vector<pair<char, unsigned int>> instr)
         : line(0), core(0), currentInstruction(0), currentAddress(0), instructions(instr), needsBus(0), tot_reads(0),
           tot_exe_cycles(0), idle_cycles(0), cache_misses(0), cache_evic(0), writebacks(0), bus_invalid(0), data_traff(0)
     {
