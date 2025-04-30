@@ -47,8 +47,8 @@ struct Core
     int tot_instruc;
     int tot_reads;
     int tot_writes;
-    int tot_exe_cycles;  // to be done
-    int idle_cycles;     // to be done
+    int tot_exe_cycles;
+    int idle_cycles;     
     int cache_misses;
     int cache_hits;
     int cache_evic;
