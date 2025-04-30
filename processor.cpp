@@ -20,7 +20,42 @@ CacheState Processor::getCacheState(unsigned int address)
             return cache[setIndex][i].state;
         }
     }
-    return CacheState::INVALID;
+
+    for (int i = 0; i < E; i++) {
+        if (cache[setIndex][i].state == CacheState::INVALID) {
+            return CacheState::INVALID;
+        }
+    }
+    return CacheState::FULL;
+}
+
+CacheState Processor::getLRUCacheLine(unsigned int address)
+{
+    unsigned int setIndex = (address >> b) & ((1 << s) - 1);
+    unsigned int tag = address >> (s + b);
+
+    int min = 0;
+
+    for (int i = 0; i < E; ++i)
+    {
+        if (cacheLRU[setIndex][i] < cacheLRU[setIndex][min])
+        {
+            min = i;
+        }
+    }
+
+    return cache[setIndex][min].state;
+
+    // for (int i = 0; i < E; ++i)
+    // {
+    //     if (cache[setIndex][i].state == CacheState::INVALID)
+    //     {
+    //         cache[setIndex][i].tag = tag;
+    //         return cache[setIndex][i].state;
+    //     }
+    // }
+
+    // return CacheState::INVALID;
 }
 
 Processor::Processor(int s, int E, int b, int core, vector<pair<char, int>> instructions) : 
@@ -31,7 +66,7 @@ s(s), E(E), b(b), instructions(instructions), line(-1), core(core), currentInstr
     state = ProcState::IDLE;
 }
 
-void Processor::completeTransaction()
+void Processor::completeTransaction(MemoryCache owner)
 {
     switch (state)
     {
@@ -94,14 +129,34 @@ bool Processor::processInstruction() {
 
                 CacheState cacheState = getCacheState(currentAddress);
 
-                // if (currentInstruction == 'R') {
-                //     state = ProcState::READ_HIT_SME_NORM;
-                //     return true;
-                // } else if (currInstruction == 'W') {
-                //     state = ProcState::WRITE_HIT_M_NORM;
-                //     return true;
-                // }
-                
+                if (currentInstruction == 'R') {
+                    switch (cacheState) {
+                        case CacheState::INVALID:
+                            state = ProcState::READ_MISS_I_NORM;
+                            return true;
+                        case CacheState::EXCLUSIVE:
+                        case CacheState::SHARED:
+                        case CacheState::MODIFIED:
+                            state = ProcState::READ_HIT_SME_NORM;
+                            return false;
+                        case CacheState::FULL:
+                            CacheState lruState = getLRUCacheLine(currentAddress);
+                            switch (lruState) {
+                                case CacheState::EXCLUSIVE:
+                                case CacheState::SHARED:
+                                case CacheState::MODIFIED:
+                                    state = ProcState::READ_MISS_M_REP_RM;
+                                    return true;
+                                default:
+                                    cout << "ERROR, LRU CACHE STATE NOT MATCHING!" << endl;
+                                    assert(false);
+                            }
+                    }
+                } else if (currInstruction == 'W') {
+                    state = ProcState::WRITE_HIT_M_NORM;
+                    return true;
+                }
+
             } else {
                 state = ProcState::COMPLETE;
                 return false;

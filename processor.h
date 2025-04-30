@@ -8,26 +8,11 @@
 enum class ProcState
 {
     IDLE,
-    READ_HIT_SME_NORM,
-    READ_MISS_I_NORM,
-    READ_MISS_I_NORM_RM,
-    READ_MISS_S_REP,
-    READ_MISS_S_REP_RM,
-    READ_MISS_M_REP,
-    READ_MISS_M_REP_WB,
-    READ_MISS_M_REP_RM,
-    WRITE_HIT_M_NORM,
-    WRITE_HIT_S_NORM,
-    WRITE_HIT_S_NORM_IV,
-    WRITE_MISS_I_NORM,
-    WRITE_MISS_I_NORM_WM,
-    WRITE_MISS_S_REP,
-    WRITE_MISS_S_REP_IV,
-    WRITE_MISS_S_REP_WM,
-    WRITE_MISS_M_REP,
-    WRITE_MISS_M_REP_WB,
-    WRITE_MISS_M_REP_WM,
-    COMPLETE,
+    READ_HIT,
+    READ_MISS,
+    WRITE_HIT,
+    WRITE_INVALIDATION,
+    WRITE_MISS,
 };
 
 enum class CacheState
@@ -35,7 +20,7 @@ enum class CacheState
     INVALID,
     SHARED,
     MODIFIED,
-    EXCLUSIVE
+    EXCLUSIVE,
 };
 
 struct CacheLine
@@ -58,6 +43,15 @@ struct Instructions
     unsigned int address;
 };
 
+enum class MemoryCache {
+    CORE0 = 0,
+    CORE1 = 1,
+    CORE2 = 2,
+    CORE3 = 3,
+    Memory = 4,
+    NONE = 5
+};
+
 class Processor
 {
 private:
@@ -78,11 +72,13 @@ private:
 
     CacheState getCacheState(unsigned int address);
 
+    CacheState getLRUCacheLine(unsigned int address);
+
     void setCacheLineState (CacheState cachestate);
 
 public:
     Processor(int s, int E, int b, int core, std::vector<std::pair<char, int>> instructions);
-    void completeTransaction();
+    void completeTransaction(MemoryCache owner);
     bool processInstruction();
     bool requestOwnership();
 };

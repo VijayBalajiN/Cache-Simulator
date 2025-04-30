@@ -20,14 +20,7 @@ enum class BusState {
     MEM_TRANSFER,
 };
 
-enum class MemoryCache {
-    CORE0 = 0,
-    CORE1 = 1,
-    CORE2 = 2,
-    CORE3 = 3,
-    Memory = 4,
-    NONE = 5
-};
+
 
 
 class Bus {
@@ -51,7 +44,7 @@ class Bus {
         int transactionRequest[4];
 
         void updateTransactionOwnerState () {
-            processors[(int)owner]->completeTransaction();
+            processors[(int)owner]->completeTransaction(dataFrom);
         }
 
         void cleanRequests() {
@@ -114,7 +107,7 @@ class Bus {
         void runCycle() {
             cleanRequests();
             updateBusState();
-            if (! processors[(int)owner]->requestOwnership()) {
+            if ((int)owner < 4 && !processors[(int)owner]->requestOwnership()) {
                 owner = MemoryCache::NONE;
             }
 
