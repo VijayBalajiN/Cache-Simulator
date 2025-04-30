@@ -55,6 +55,7 @@ struct Core
     int writebacks;
     int bus_invalid;
     int data_traff;
+    int tot_cycles;
 
     int currLine;
 
@@ -67,7 +68,7 @@ struct Core
 
     Core(int s, int E, int b, const vector<pair<char, unsigned int>> instr)
         : line(0), core(0), currentInstruction(0), currentAddress(0), instructions(instr), needsBus(0), tot_reads(0),
-          tot_exe_cycles(0), idle_cycles(0), cache_misses(0), cache_evic(0), writebacks(0), bus_invalid(0), data_traff(0), currLine(-1), cache_hits(0)
+          tot_exe_cycles(0), idle_cycles(0), cache_misses(0), cache_evic(0), writebacks(0), bus_invalid(0), data_traff(0), currLine(-1), cache_hits(0), tot_cycles(-1)
     {
         int sets = 1 << s;
         tot_instruc = instructions.size();
@@ -92,6 +93,9 @@ private:
     int source;      // 0-3 cores, 4 is memory
     int destination; // 0-3 cores, 4 is memory
     unsigned int address;
+
+    int memdata_traff;
+    int tot_transactions;
 
     
 
@@ -135,7 +139,7 @@ private:
         double core3_cache_miss_rate = (double)cores[3].cache_misses / cores[3].tot_instruc * 100.0;
 
         // Calculate total bus traffic
-        int total_bus_traffic = cores[0].data_traff + cores[1].data_traff + cores[2].data_traff + cores[3].data_traff;
+        int total_bus_traffic = memdata_traff;
 
         int block_size = 1 << b;
         int num_sets = 1 << s;
@@ -181,8 +185,8 @@ private:
 
 
         outfile<< "Overall Bus Summary:\n";
-        // outfile<< "Total Bus Transactions: " << total_bus_transactions << "\n";
-        outfile<< "Total Bus Traffic (Bytes): " << total_bus_traffic << "\n";
+        outfile<< "Total Bus Transactions: " << tot_transactions << "\n";
+        outfile<< "Total Bus Traffic (Bytes): " << memdata_traff << "\n";
     }
 
     void runCore(int core)
@@ -194,7 +198,7 @@ private:
 
         
 
-        if (cores[core].needsBus == 1 && state != BusState::IDLE && (owners.top() == core || destination == core) && cores[core].line < cores[core].tot_instruc) {
+        if (line < cores[core].instructions.size() && cores[core].needsBus == 1 && state != BusState::IDLE && (owners.top() == core || destination == core) && cores[core].line < cores[core].tot_instruc) {
             if (cores[core].currLine != line) {
                 
                 assert(false);
@@ -202,7 +206,7 @@ private:
             cores[core].tot_exe_cycles += 1;
             return;
         }
-        else if (cores[core].needsBus == 1 && state != BusState::IDLE && owners.top() != core && cores[core].line < cores[core].tot_instruc){
+        else if (line < cores[core].instructions.size() && cores[core].needsBus == 1 && state != BusState::IDLE && owners.top() != core && cores[core].line < cores[core].tot_instruc){
             if (cores[core].currLine != line) {
                 cout << "If currLine is not equal to line, then this is the first time this instruction is processed" << endl;
                 assert(false);
@@ -252,7 +256,7 @@ private:
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
                         
-                        cores[core].data_traff += (1 << b);
+                        
                         CacheState lruState = getInvalidCacheState(core, currentAddress);
 
                         switch (lruState)
@@ -265,7 +269,7 @@ private:
                             break;
                         case CacheState::MODIFIED:
                             cores[core].writebacks += 1;
-                            cores[core].data_traff += (1 << b);
+                            
                             state = BusState::TRANSACTION;
                             remainingCycles = MEMCYCLES;
                             source = core;
@@ -341,7 +345,7 @@ private:
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
                         
-                        cores[core].data_traff += (1 << b);
+                        
                         CacheState lruState = getInvalidCacheState(core, currentAddress); // Invalidate corresponding LRU State
 
                         switch (lruState)
@@ -356,7 +360,7 @@ private:
                             break;
                         case CacheState::MODIFIED:
                             cores[core].writebacks += 1;
-                            cores[core].data_traff += (1 << b);
+                            
                             state = BusState::TRANSACTION;
                             remainingCycles = MEMCYCLES;
                             source = core;
@@ -374,6 +378,10 @@ private:
         }
         else
         {
+            if (cores[core].tot_cycles == -1) {
+                cores[core].tot_cycles = cycle;
+                cores[core].idle_cycles = cycle - cores[core].tot_exe_cycles;
+            }
             completed[core] = 1;
             
         }
@@ -484,18 +492,20 @@ private:
         }
     }
 
-    void invalidateAddress(int core, unsigned int currentAddress)
+    bool invalidateAddress(int core, unsigned int currentAddress)
     {
         unsigned int setIndex = (currentAddress >> b) & ((1 << s) - 1);
         unsigned int tag = currentAddress >> (s + b);
 
         for (int i = 0; i < E; ++i)
         {
-            if (cores[core].cache[setIndex][i].tag == tag)
+            if (cores[core].cache[setIndex][i].tag == tag && cores[core].cache[setIndex][i].state != CacheState::INVALID)
             {
                 cores[core].cache[setIndex][i].state = CacheState::INVALID;
+                return true;
             }
         }
+        return false;
     }
 
     void shareAddress(int core, unsigned int currentAddress)
@@ -533,10 +543,10 @@ private:
         {
         case BusState::INVALID:
             if (core != owners.top())
-            {
-                
-                
-                invalidateAddress(core, address);
+            {   
+                if (invalidateAddress(core, address)) {
+                    cores[owners.top()].bus_invalid += 1;
+                }
             }
             break;
         case BusState::RM:
@@ -552,10 +562,10 @@ private:
                     remainingCycles = MEMCYCLES;
                     source = core;
                     destination = 4;
-                    cores[core].data_traff += (1 << b);
+                    
                 } else {
                     owners.push(4 + core);
-                    cores[core].data_traff += (1 << b);
+                    
                     state = BusState::TRANSACTION;
                     source = core;
                     remainingCycles = 2 * (1 << b) / 4 - 1;
@@ -572,7 +582,8 @@ private:
             {
                 
                 owners.push(4 + core);
-                cores[core].data_traff += (1 << b);
+                
+                
                 state = BusState::TRANSACTION;
                 source = core;
                 destination = 4;
@@ -581,7 +592,9 @@ private:
             if (core != owners.top()) {
                 
                 
-                invalidateAddress(core, address);
+                if (invalidateAddress(core, address)) {
+                    cores[owners.top()].bus_invalid += 1;
+                }
             }
             break;
 
@@ -622,24 +635,37 @@ private:
         switch (state)
         {
         case BusState::RM:
+            // tot_transactions += 1;
             state = BusState::TRANSACTION;
             remainingCycles = MEMCYCLES;
             source = 4;
             break;
         case BusState::RWITM:
+            // tot_transactions += 1;
             state = BusState::TRANSACTION;
             remainingCycles = MEMCYCLES;
             source = 5;
             break;
         case BusState::INVALID:
+            // tot_transactions += 1;
             state = BusState::IDLE;
             owners.pop();
             break;
         case BusState::TRANSACTION:
             if (remainingCycles == 0)
             {
-                if (destination < 4)
+                tot_transactions += 1;
+                memdata_traff += (1 << b);
+
+                if (destination < 4) {
                     addToCache(destination);
+                    cores[destination].data_traff += (1 << b);
+                    
+                }
+                if (source < 4) {
+                    cores[source].data_traff += (1 << b);
+                }
+
                 if (owners.top() >= 4 && owners.top() <= 7)
                     owners.pop();
                 state = BusState::IDLE;
@@ -690,7 +716,7 @@ private:
     }
 
 public:
-    Bus(int s, int E, int b, string appname) : state(BusState::IDLE), address(0), s(s), E(E), b(b)
+    Bus(int s, int E, int b, string appname) : state(BusState::IDLE), address(0), s(s), E(E), b(b), memdata_traff(0), tot_transactions(0)
     {
         Traces traces = parse_traces(appname);
         cores[0] = Core(s, E, b, traces.trace1);
@@ -710,14 +736,11 @@ public:
 
     void runApplication()
     {
-        cout <<  "RUNNING" << endl;
+
         while (!runCycle())
         {
             cycle += 1;
-        }
-
-        
-        
+        }        
     }
 
     void printCore(string outputfilename, string appname) {
