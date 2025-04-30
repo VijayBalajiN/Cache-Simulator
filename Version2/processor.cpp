@@ -380,6 +380,7 @@ private:
         {
             if (cores[core].tot_cycles == -1) {
                 cores[core].tot_cycles = cycle;
+                
                 cores[core].idle_cycles = cycle - cores[core].tot_exe_cycles;
             }
             completed[core] = 1;
