@@ -13,55 +13,55 @@ Bus: Central snooping bus
 
 Core 0 Statistics:
 Total Instructions: 2497349
-Total Reads: 1558939
-Total Writes: 1028365
-Total Execution Cycles: 4119950
-Idle Cycles: 5322060
-Cache Misses: 47470
-Cache Miss Rate: 1.901%
-Cache Evictions: 38200
-Writebacks: 9054
-Bus Invalidations: 2802
-Data Traffic (Bytes): 4247968
+Total Reads: 1489888
+Total Writes: 1007462
+Total Execution Cycles: 6361865
+Idle Cycles: 3499769
+Cache Misses: 35728
+Cache Miss Rate: 1.431%
+Cache Evictions: 35540
+Writebacks: 7110
+Bus Invalidations: 37
+Data Traffic (Bytes): 2041984
 
 Core 1 Statistics:
 Total Instructions: 2490468
-Total Reads: 1554218
-Total Writes: 1024466
-Total Execution Cycles: 4042435
-Idle Cycles: 5771677
-Cache Misses: 46493
-Cache Miss Rate: 1.867%
-Cache Evictions: 37639
-Writebacks: 8649
-Bus Invalidations: 2670
-Data Traffic (Bytes): 3503456
+Total Reads: 1485857
+Total Writes: 1004612
+Total Execution Cycles: 6269849
+Idle Cycles: 3940219
+Cache Misses: 35195
+Cache Miss Rate: 1.413%
+Cache Evictions: 35025
+Writebacks: 6734
+Bus Invalidations: 16
+Data Traffic (Bytes): 1715872
 
 Core 2 Statistics:
 Total Instructions: 2509057
-Total Reads: 1560750
-Total Writes: 1043674
-Total Execution Cycles: 4736276
-Idle Cycles: 10224789
-Cache Misses: 55922
-Cache Miss Rate: 2.229%
-Cache Evictions: 43270
-Writebacks: 12348
-Bus Invalidations: 3395
-Data Traffic (Bytes): 2186272
+Total Reads: 1492629
+Total Writes: 1016429
+Total Execution Cycles: 7191889
+Idle Cycles: 8764088
+Cache Misses: 40695
+Cache Miss Rate: 1.622%
+Cache Evictions: 40496
+Writebacks: 10363
+Bus Invalidations: 43
+Data Traffic (Bytes): 2000448
 
 Core 3 Statistics:
 Total Instructions: 2503127
-Total Reads: 1549439
-Total Writes: 1025603
-Total Execution Cycles: 4080441
-Idle Cycles: 12226303
-Cache Misses: 47477
-Cache Miss Rate: 1.897%
-Cache Evictions: 38378
-Writebacks: 8901
-Bus Invalidations: 2757
-Data Traffic (Bytes): 1804704
+Total Reads: 1493736
+Total Writes: 1009392
+Total Execution Cycles: 6389281
+Idle Cycles: 10907982
+Cache Misses: 35876
+Cache Miss Rate: 1.433%
+Cache Evictions: 35703
+Writebacks: 6958
+Bus Invalidations: 12
+Data Traffic (Bytes): 1627456
 
 Overall Bus Summary:
-Total Bus Traffic (Bytes): 11742400
+Total Bus Traffic (Bytes): 7385760
