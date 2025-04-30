@@ -7,7 +7,7 @@
 
 using namespace std;
 
-vector<pair<char, int>> parse_trace(string trace_file_name);
+vector<pair<char, unsigned int>> parse_trace(string trace_file_name);
 
 
 Traces parse_traces(string trace_name){
@@ -24,21 +24,22 @@ Traces parse_traces(string trace_name){
     return trace;
 }
 
-vector<pair<char, int>> parse_trace(string trace_file_name){
+vector<pair<char, unsigned int>> parse_trace(string trace_file_name){
     ifstream trace(trace_file_name);
     string line;
-    vector<pair<char, int>> trace_i;
+    vector<pair<char, unsigned int>> trace_i;
     if (trace.is_open()){
         while (getline(trace, line)){
             char instruction;
-            int address;
+            unsigned long address;
             stringstream ss(line);
             string ins;
             getline(ss, ins, ' ');
             string add;
             getline(ss, add); 
             instruction = ins[0];
-            address = stoi(add, nullptr, 0);
+            address = stoul(add, nullptr, 0);
+            address = static_cast<unsigned int>(address);
             trace_i.push_back(make_pair(instruction, address));
 
         }
