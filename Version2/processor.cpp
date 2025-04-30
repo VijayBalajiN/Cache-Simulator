@@ -67,7 +67,7 @@ struct Core
         int sets = 1 << s;
         tot_instruc = instructions.size();
         cache.resize(sets, vector<CacheLine>(E));
-        cacheLRU.resize(sets, vector<int>(E, 0));
+        cacheLRU.resize(sets, vector<int>(E, 0)); //Array of size E
     }
 
     Core()
