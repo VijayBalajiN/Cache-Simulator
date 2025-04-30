@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stack>
 #include "parser.h"
+#include <fstream>
 
 #define MEMCYCLES 100
 
@@ -97,6 +98,86 @@ private:
     int cycle;
 
     Core cores[4];
+
+    void print_core(ofstream& outfile, int tot_instruc, int tot_reads, int tot_writes,
+        int tot_exe_cycles, int idle_cycles, int cache_miss, double cache_miss_rate,
+        int cache_evic, int writebacks, int bus_invalid, int data_traff) {
+        outfile<< "Total Instructions: " << tot_instruc << "\n";
+        outfile<< "Total Reads: " << tot_reads << "\n";
+        outfile<< "Total Writes: " << tot_writes << "\n";
+        outfile<< "Total Execution Cycles: " << tot_exe_cycles << "\n";
+        outfile<< "Idle Cycles: " << idle_cycles << "\n";
+        outfile<< "Cache Misses: " << cache_miss << "\n";
+        outfile<< "Cache Miss Rate: " << fixed << setprecision(3) << cache_miss_rate << "%\n";
+        outfile<< "Cache Evictions: " << cache_evic << "\n";
+        outfile<< "Writebacks: " << writebacks << "\n";
+        outfile<< "Bus Invalidations: " << bus_invalid << "\n";
+        outfile<< "Data Traffic (Bytes): " << data_traff << "\n";
+    }
+
+    void print_output(string trace_pref, string output_file) {
+
+        ofstream outfile(output_file);
+        if (!outfile.is_open()){
+        cerr << "Error: Could not open file " << output_file << " for writing\n";
+        return;
+        }
+        // Calculate cache miss rates
+        double core0_cache_miss_rate = (double)cores[0].cache_misses / cores[0].tot_instruc * 100.0;
+        double core1_cache_miss_rate = (double)cores[1].cache_misses / cores[1].tot_instruc * 100.0;
+        double core2_cache_miss_rate = (double)cores[2].cache_misses / cores[2].tot_instruc * 100.0;
+        double core3_cache_miss_rate = (double)cores[3].cache_misses / cores[3].tot_instruc * 100.0;
+
+        // Calculate total bus traffic
+        int total_bus_traffic = cores[0].data_traff + cores[1].data_traff + cores[2].data_traff + cores[3].data_traff;
+
+        int block_size = 1 << b;
+        int num_sets = 1 << s;
+        int cache_size_kb = (num_sets * E * block_size) / 1024;
+
+        outfile<< "Simulation Parameters:\n";
+        outfile<< "Trace Prefix: " << trace_pref << "\n";
+        outfile<< "Set Index Bits: " << s << "\n";
+        outfile<< "Associativity: " << E << "\n";
+        outfile<< "Block Bits: " << b << "\n";
+        outfile<< "Block Size (Bytes): " << block_size << "\n";
+        outfile<< "Number of Sets: " << num_sets << "\n";
+        outfile<< "Cache Size (KB per core): " << cache_size_kb << "\n";
+        outfile<< "MESI Protocol: Enabled\n"; 
+        outfile<< "Write Policy: Write-back, Write-allocate\n";
+        outfile<< "Replacement Policy: LRU\n";
+        outfile<< "Bus: Central snooping bus\n\n";
+
+        outfile<< "Core 0 Statistics:\n";
+        print_core(outfile, cores[0].tot_instruc, cores[0].tot_reads, cores[0].tot_writes,
+            cores[0].tot_exe_cycles, cores[0].idle_cycles, cores[0].cache_misses, core0_cache_miss_rate,
+            cores[0].cache_evic, cores[0].writebacks, cores[0].bus_invalid, cores[0].data_traff);
+        outfile<< "\n";
+
+        outfile<< "Core 1 Statistics:\n";
+        print_core(outfile, cores[1].tot_instruc, cores[1].tot_reads, cores[1].tot_writes,
+            cores[1].tot_exe_cycles, cores[1].idle_cycles, cores[1].cache_misses, core1_cache_miss_rate,
+            cores[1].cache_evic, cores[1].writebacks, cores[1].bus_invalid, cores[1].data_traff);
+        outfile<< "\n";
+
+        outfile<< "Core 2 Statistics:\n";
+        print_core(outfile, cores[2].tot_instruc, cores[2].tot_reads, cores[2].tot_writes,
+            cores[2].tot_exe_cycles, cores[2].idle_cycles, cores[2].cache_misses, core2_cache_miss_rate,
+            cores[2].cache_evic, cores[2].writebacks, cores[2].bus_invalid, cores[2].data_traff);
+        outfile<< "\n";
+
+        outfile<< "Core 3 Statistics:\n";
+        print_core(outfile, cores[3].tot_instruc, cores[3].tot_reads, cores[3].tot_writes,
+         cores[3].tot_exe_cycles, cores[3].idle_cycles, cores[3].cache_misses, core3_cache_miss_rate,
+         cores[3].cache_evic, cores[3].writebacks, cores[3].bus_invalid, cores[3].data_traff);
+        outfile<< "\n";
+
+
+
+        outfile<< "Overall Bus Summary:\n";
+        // outfile<< "Total Bus Transactions: " << total_bus_transactions << "\n";
+        outfile<< "Total Bus Traffic (Bytes): " << total_bus_traffic << "\n";
+    }
 
     void runCore(int core)
     {
@@ -406,11 +487,20 @@ private:
             
             if (core != source && owners.top() <= 3 && containsAddress(core, address))
             {
-                owners.push(4 + core);
-                cores[core].data_traff += (1 << b);
-                state = BusState::TRANSACTION;
-                source = core;
-                remainingCycles = 2 * (1 << b);
+                if (getCacheState(core, address) == CacheState::MODIFIED) {
+                    owners.push(4 + core);
+                    state = BusState::TRANSACTION;
+                    remainingCycles = 2 * (1 << b);
+                    source = core;
+                    destination = 4;
+                    cores[core].data_traff += (1 << b);
+                } else {
+                    owners.push(4 + core);
+                    cores[core].data_traff += (1 << b);
+                    state = BusState::TRANSACTION;
+                    source = core;
+                    remainingCycles = 2 * (1 << b);
+                }
             }
             shareAddress(core, address);
             break;
@@ -565,6 +655,16 @@ public:
         }
         
     }
+
+    void printCore(string outputfilename, string appname) {
+        // ofstream outfile(output_file);
+        // if (!outfile.is_open()){
+        //     cerr << "Error: Could not open file " << output_file << " for writing\n";
+        //     return;
+        // }
+        print_output(appname, outputfilename);
+
+    }
 };
 
 int main()
@@ -578,4 +678,6 @@ int main()
     Bus bus = Bus(s, E, b, appname);
 
     bus.runApplication();
+
+    bus.printCore("output.txt", "app1");
 }
