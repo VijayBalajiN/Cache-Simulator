@@ -1,0 +1,381 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\pgfplotsset{compat=1.18}
+
+\title{Cache Simulator Implementation and Analysis}
+\author{Vijay Balaji $|$ Reeshabh Kotecha}
+\date{}
+
+\begin{document}
+
+\maketitle
+\begin{abstract}
+This report presents the implementation and experimental analysis of a cache simulator. The simulator models an L1 cache with MESI protocol support for a quad-core processor system. Various configurations are tested to analyze cache performance metrics including miss rates, execution cycles, and bus traffic.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Implementation}
+% \subsection{System Architecture}
+% Add description of the overall system architecture
+
+\subsection{Main Classes and Functions}
+% Here you can describe the main classes and data structures used in your implementation
+
+\begin{lstlisting}[language=C++, caption=Core class structure]
+// Main classes in your implementation
+class CacheLine {
+    // Add your cache line attributes
+};
+
+class Processor {
+    // Add your processor implementation
+};
+
+// Other important data structures
+\end{lstlisting}
+
+\subsection{Detailed Implementation}
+\subsubsection{Cache Structure}
+% Describe how the cache is structured
+
+\subsubsection{MESI Protocol Implementation}
+% Describe how the MESI protocol is implemented
+Add a photo from notes
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[node distance=2cm]
+        % Add your state diagram or flowchart here
+        \node[draw, rectangle] (start) {Start};
+        \node[draw, rectangle, below of=start] (checkCache) {Check Cache};
+        \node[draw, rectangle, below of=checkCache] (hitMiss) {Hit/Miss?};
+        
+        \draw[->] (start) -- (checkCache);
+        \draw[->] (checkCache) -- (hitMiss);
+        % Add more elements to your flowchart
+    \end{tikzpicture}
+    \caption{Flow diagram of cache access operations}
+    \label{fig:cache_flow}
+\end{figure}
+
+\subsubsection{Replacement Policy}
+% Describe the replacement policy
+
+We have used the LRU Replacement Policy \\
+Add some code here
+
+
+\section{Experimental Analysis}
+\subsection{Experimental Setup}
+The cache simulator was tested with various configurations across multiple applications. Each core has its own L1 cache, and they communicate via a shared bus with the MESI protocol to maintain coherence.
+
+\subsection{Parameters}
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|c|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Set Index Bits & 5 \\
+Associativity & 2 \\
+Block Bits & 5 \\
+Block Size (Bytes) & 32 \\
+Number of Sets & 32 \\
+Cache Size (KB per core) & 2 \\
+Protocol & MESI \\
+Write Policy & Write-back, Write-allocate \\
+Replacement Policy & LRU \\
+\hline
+\end{tabular}
+\caption{Cache configuration parameters}
+\label{tab:parameters}
+\end{table}
+
+\subsection{Performance Metrics}
+\subsubsection{Cache Miss Rates}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=12cm,
+    height=8cm,
+    ylabel={Cache Miss Rate (\%)},
+    xlabel={Processor Core},
+    symbolic x coords={Core 0, Core 1, Core 2, Core 3},
+    xtick=data,
+    ymin=0,
+    ymax=30,
+    nodes near coords,
+    bar width=1cm,
+    enlarge x limits=0.25,
+    legend pos=north west,
+    grid=both,
+    grid style={line width=.1pt, draw=gray!10},
+    major grid style={line width=.2pt,draw=gray!50},
+]
+% Replace these values with your actual results
+\addplot[] coordinates {
+    (Core 0, 25.52)
+    (Core 1, 10.30)
+    (Core 2, 24.55)
+    (Core 3, 25.67)
+};
+\end{axis}
+\end{tikzpicture}
+\caption{Cache miss rates across different cores}
+\label{fig:miss_rates}
+\end{figure}
+
+\subsubsection{Execution Cycles}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=12cm,
+    height=8cm,
+    ylabel={Execution Cycles},
+    xlabel={Processor Core},
+    symbolic x coords={Core 0, Core 1, Core 2, Core 3},
+    xtick=data,
+    ymin=0,
+    legend pos=north west,
+    grid=both,
+    grid style={line width=.1pt, draw=gray!10},
+    major grid style={line width=.2pt,draw=gray!50},
+]
+% Replace with your actual data
+\addplot[fill=green!50!white] coordinates {
+    (Core 0, 3920)
+    (Core 1, 3860)
+    (Core 2, 3785)
+    (Core 3, 3905)
+};
+\end{axis}
+\end{tikzpicture}
+\caption{Total execution cycles per core}
+\label{fig:exec_cycles}
+\end{figure}
+
+\subsection{Overall Bus Traffic Analysis}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=12cm,
+    height=8cm,
+    ylabel={Data Traffic (Bytes)},
+    xlabel={Processor Core},
+    symbolic x coords={Core 0, Core 1, Core 2, Core 3},
+    xtick=data,
+    ymin=0,
+    nodes near coords,
+    legend pos=north west,
+    grid=both,
+    grid style={line width=.1pt, draw=gray!10},
+    major grid style={line width=.2pt,draw=gray!50},
+]
+% Replace with your actual data
+\addplot[fill=red!50!white] coordinates {
+    (Core 0, 2680)
+    (Core 1, 2540)
+    (Core 2, 2430)
+    (Core 3, 2610)
+};
+\end{axis}
+\end{tikzpicture}
+\caption{Data traffic generated by each core}
+\label{fig:data_traffic}
+\end{figure}
+
+\subsection{Effect of Varying Parameters}
+
+\subsubsection{Impact of Associativity}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=12cm,
+    height=8cm,
+    xlabel={Associativity},
+    ylabel={Miss Rate (\%)},
+    xtick={1,2,4,8},
+    grid=both,
+    legend pos=north east,
+    grid style={line width=.1pt, draw=gray!10},
+    major grid style={line width=.2pt,draw=gray!50},
+]
+% Replace with your experimental data
+\addplot[color=blue,mark=*] coordinates {
+    (1, 30.2)
+    (2, 25.5)
+    (4, 22.3)
+    (8, 20.1)
+};
+\end{axis}
+\end{tikzpicture}
+\caption{Cache miss rate vs. associativity}
+\label{fig:associativity}
+\end{figure}
+
+\subsubsection{Questions}
+
+\begin{enumerate}
+    \item \textbf{Which outputs remain the same when the number of sets is doubled?}
+    
+    Answer: When the number of sets is doubled (increasing the set index bits by 1), 
+    the hit rate typically improves due to reduced conflict misses. However, parameters 
+    like block size remain unchanged. The total cache size will double unless other 
+    parameters are adjusted.
+    
+    \item \textbf{Which outputs remain the same when the associativity is doubled?}
+    
+    Answer: When associativity is doubled, the cache size increases proportionally. 
+    The mapping of addresses to sets remains the same, but each set can hold more 
+    cache lines, typically reducing conflict misses. Parameters like block size 
+    and the set mapping function remain unchanged.
+\end{enumerate}
+
+\section{Advanced Analysis}
+\subsection{Comparative Study}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=12cm,
+    height=8cm,
+    xlabel={Cache Size (KB)},
+    ylabel={Miss Rate (\%)},
+    grid=both,
+    legend pos=north east,
+    grid style={line width=.1pt, draw=gray!10},
+    major grid style={line width=.2pt,draw=gray!50},
+]
+% Replace with your experimental data for different applications
+\addplot[color=blue,mark=*] coordinates {
+    (1, 35.2)
+    (2, 25.5)
+    (4, 18.3)
+    (8, 15.1)
+};
+\legend{App1}
+\end{axis}
+\end{tikzpicture}
+\caption{Cache miss rate vs. cache size for different applications}
+\label{fig:cache_size_comparison}
+\end{figure}
+
+\subsection{MESI Protocol Analysis}
+\subsubsection{State Transitions}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Event} & \textbf{Modified} & \textbf{Exclusive} & \textbf{Shared} & \textbf{Invalid} \\
+\hline
+PrRd & M & E & S & S/E \\
+PrWr & M & M & M & M \\
+BusRd & S & S & S & - \\
+BusRdX & I & I & I & - \\
+\hline
+\end{tabular}
+\caption{MESI state transitions}
+\label{tab:mesi_transitions}
+\end{table}
+
+\subsubsection{Coherence Traffic Analysis}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=12cm,
+    height=8cm,
+    xlabel={Application},
+    ylabel={Bus Transactions},
+    symbolic x coords={App1, App2, App3, App4},
+    xtick=data,
+    grid=both,
+    legend style={at={(0.5,-0.15)}, anchor=north, legend columns=3},
+    grid style={line width=.1pt, draw=gray!10},
+    major grid style={line width=.2pt,draw=gray!50},
+    ybar stacked,
+]
+% Replace with your actual data
+\addplot[fill=blue!50!white] coordinates {
+    (App1, 51)
+    (App2, 48)
+    (App3, 55)
+    (App4, 62)
+};
+\addplot[fill=red!50!white] coordinates {
+    (App1, 15)
+    (App2, 18)
+    (App3, 22)
+    (App4, 27)
+};
+\addplot[fill=green!50!white] coordinates {
+    (App1, 38)
+    (App2, 41)
+    (App3, 47)
+    (App4, 52)
+};
+\legend{Bus Invalidations, Writebacks, Cache Evictions}
+\end{axis}
+\end{tikzpicture}
+\caption{Breakdown of bus transactions by type across different applications}
+\label{fig:bus_transactions}
+\end{figure}
+
+\subsubsection{Questions}
+
+\begin{enumerate}
+    \item \textbf{Which factor has the greatest impact on coherence traffic?}
+    
+    Answer: The sharing pattern between cores has the greatest impact on coherence traffic. 
+    When multiple cores frequently access and modify the same memory locations, it leads 
+    to increased invalidation messages, state changes, and data transfers over the bus.
+    
+    \item \textbf{How does the miss rate correlate with bus traffic?}
+    
+    Answer: There is a strong correlation between miss rate and bus traffic. Higher miss 
+    rates lead to more cache line fills from memory, which increases bus utilization. 
+    Additionally, in a multi-core system with cache coherence, each miss potentially 
+    triggers coherence actions (e.g., invalidations or updates) on other cores' caches, 
+    further increasing bus traffic.
+\end{enumerate}
+
+% \section{Conclusion}
+% % Add your conclusions here
+
+% \appendix
+% \section{Additional Data}
+% % Add any additional data here
+
+\bibliography{references}
+\bibliographystyle{plain}
+
+\end{document}
