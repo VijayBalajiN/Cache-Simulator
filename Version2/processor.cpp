@@ -256,7 +256,7 @@ private:
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
                         
-                        
+                        tot_transactions += 1;
                         CacheState lruState = getInvalidCacheState(core, currentAddress);
 
                         switch (lruState)
@@ -318,6 +318,7 @@ private:
 
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
+                        tot_transactions += 1;
                         cores[core].bus_invalid += 1;
                         CacheState _ = getWriteCacheState(core, currentAddress);
                         updateLRU(core, currentAddress);
@@ -345,7 +346,7 @@ private:
                     if (!owners.empty() && owners.top() == core && state == BusState::IDLE)
                     {
                         
-                        
+                        tot_transactions += 1;  // check this in case of double rwitm what to do?
                         CacheState lruState = getInvalidCacheState(core, currentAddress); // Invalidate corresponding LRU State
 
                         switch (lruState)
@@ -655,7 +656,7 @@ private:
         case BusState::TRANSACTION:
             if (remainingCycles == 0)
             {
-                tot_transactions += 1;
+                // tot_transactions += 1;
                 memdata_traff += (1 << b);
 
                 if (destination < 4) {
